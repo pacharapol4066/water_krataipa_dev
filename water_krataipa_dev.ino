@@ -2,145 +2,102 @@
 #include <LiquidCrystal_I2C.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
-#include <SimpleTimer.h>
 #include <BlynkSimpleEsp8266.h>
-#include <DHT.h>
-
-#define DHTPIN 5
-#define DHTTYPE DHT11
 
 char auth[] = "7973178c19e44ba3a99b19400be53f70";
 const char* ssid     = "krataipa";
 const char* password = "wildrabbit";
+
 int pumpFlage1 = 0;
 int pumpFlage2 = 0;
 int pumpFlage3 = 0;
 int pumpFlage4 = 0;
 int pumpFlage5 = 0;
-int pumpFlage6 = 0;
 
-const int relayInput1 = 4;   /* GP4(D2)*/
-const int relayInput2 = 0;   /* GP0(D3)*/
-const int relayInput3 = 2;   /* GP2(D4)*/
-const int relayInput4 = 14;  /* GP14(D5)*/
-const int relayInput5 = 12;  /* GP12(D6)*/
-const int relayInput6 = 13;  /* GP13(D7)*/
-const int relayInput7 = 15;  /* GP15(D8)*/
+int relaySolinoidState[5];
+int relayPumpState = 0;
 
-DHT dht(DHTPIN, DHTTYPE);
-SimpleTimer timer;
+const int relayInput[6] = {0,2,14,12,13,15};
+
+BlynkTimer timer;
 LiquidCrystal_I2C lcd(0x3F, 16, 2);
 
 BLYNK_CONNECTED() {
     Blynk.syncAll();
 }
 
-BLYNK_WRITE(GP4) //Button Widget is writing to pin GP4
+BLYNK_WRITE(V1) //Relay 1
 {
   int pinData = param.asInt(); 
-  if (pinData == 1) 
-    pumpFlage1 = 1;
-  else if (pinData == 0)
-    pumpFlage1 = 0;
+  relayControl(pinData,relayInput[0],0);
 }
 
-BLYNK_WRITE(GP0) //Button Widget is writing to pin GP0
+BLYNK_WRITE(V2) //Relay 2
 {
   int pinData = param.asInt(); 
-  if (pinData == 1) 
-    pumpFlage2 = 1;
-  else if (pinData == 0)
-    pumpFlage2 = 0;
+  relayControl(pinData,relayInput[1],1);
 }
 
-BLYNK_WRITE(GP2) //Button Widget is writing to pin GP2
+BLYNK_WRITE(V3) //Relay 3
 {
   int pinData = param.asInt(); 
-  if (pinData == 1) 
-    pumpFlage3 = 1;
-  else if (pinData == 0)
-    pumpFlage3 = 0;
+  relayControl(pinData,relayInput[2],2);
 }
 
-BLYNK_WRITE(GP14) //Button Widget is writing to pin GP2
+BLYNK_WRITE(V4) //Relay 4
 {
   int pinData = param.asInt(); 
-  if (pinData == 1) 
-    pumpFlage4 = 1;
-  else if (pinData == 0)
-    pumpFlage4 = 0;
+  relayControl(pinData,relayInput[3],3);
 }
 
-BLYNK_WRITE(GP12) //Button Widget is writing to pin GP2
+BLYNK_WRITE(V5) //Relay 5
 {
   int pinData = param.asInt(); 
-  if (pinData == 1) 
-    pumpFlage5 = 1;
-  else if (pinData == 0)
-    pumpFlage5 = 0;
+  relayControl(pinData,relayInput[4],4);
 }
 
-BLYNK_WRITE(GP13) //Button Widget is writing to pin GP2
+BLYNK_WRITE(V6) //Relay 6
 {
   int pinData = param.asInt(); 
-  if (pinData == 1) 
-    pumpFlage6 = 1;
-  else if (pinData == 0)
-    pumpFlage6 = 0;
+  relayControl(pinData,relayInput[5],5);
 }
 
-BLYNK_WRITE(GP15) //Button Widget is writing to pin GP2
+
+void relayControl(int onoff,int relayNo,int statusFlage)
 {
-  int pinData = param.asInt(); 
-  if (pinData == 1) 
-  {
-    if(pumpFlage1 == 1 || pumpFlage2 == 1 || pumpFlage3 == 1 || pumpFlage4 == 1 || pumpFlage5 == 1 || pumpFlage6 == 1){
-        digitalWrite(relayInput7, LOW);
+    int relayStatus = 0;
+    if(onoff == 1) // Virtual button set to on
+    {
+        /* If Relay Pump btn hit */
+        if(statusFlage == 5)
+        { 
+            /* Recheck all solinoid was opened */
+            if(relaySolinoidState[0] == 1 || relaySolinoidState[1] == 1 || relaySolinoidState[2] == 1 || relaySolinoidState[3] == 1 || relaySolinoidState[4] == 1)
+            {
+                digitalWrite(relayInput[5], HIGH);
+                relaySolinoidState[statusFlage] = 1;
+            }
+        }
+        else
+        {
+            digitalWrite(relayNo, HIGH);
+            relaySolinoidState[statusFlage] = 1;
+        }
     }
-  }
-}
-
-void sendSensor()
-{
-  float t = dht.readTemperature();
-  if (isnan(t)) {
-    Serial.println("Failed to read from DHT sensor!");
-    return;
-  }
-  Blynk.virtualWrite(V1, t);
-}
-
-void setup() {
-  // put your setup code here, to run once:
-   Serial.begin(115200);
-   Wire.begin(D0, D1);    //SCL,SDA
-   
-   pinMode(relayInput1,OUTPUT);
-   pinMode(relayInput2,OUTPUT);
-   pinMode(relayInput3,OUTPUT);
-   pinMode(relayInput4,OUTPUT);
-   pinMode(relayInput5,OUTPUT);
-   pinMode(relayInput6,OUTPUT);
-   pinMode(relayInput7,OUTPUT);
-   
-   lcd.begin();
-   lcd.backlight();
-   lcd.print("Starting");
-
-   WiFi.begin(ssid, password);
-   while (WiFi.status() != WL_CONNECTED) 
-   {
-      delay(1000);
-      lcd.print(".");
-   }
-   recheckWifi();
-   Blynk.begin(auth, ssid, password);
-   timer.setInterval(1000L, sendSensor);
-}
-
-void loop() {
-  Blynk.run();
-  timer.run();
+    else if(onoff == 0)
+    {
+        relaySolinoidState[statusFlage] = 0;
+        
+        /* If user close all solinoid valve */
+        if(relaySolinoidState[0] == 0 && relaySolinoidState[1] == 0 && relaySolinoidState[2] == 0 && relaySolinoidState[3] == 0 && relaySolinoidState[4] == 0)
+        {
+            digitalWrite(relayInput[5], LOW);     //Cut off pump immediately
+        }
+        else
+        {
+            digitalWrite(relayNo, LOW);
+        }
+    }
 }
 
 void recheckWifi(){
@@ -157,4 +114,41 @@ void recheckWifi(){
        lcd.setCursor(0, 1);
        lcd.print("Wifi Not Connect");
    }
+}
+
+void setup() {
+  // put your setup code here, to run once:
+   Serial.begin(115200);
+   Wire.begin(D2, D1);    //SCL,SDA
+   
+   pinMode(relayInput[0],OUTPUT);
+   pinMode(relayInput[1],OUTPUT);
+   pinMode(relayInput[2],OUTPUT);
+   pinMode(relayInput[3],OUTPUT);
+   pinMode(relayInput[4],OUTPUT);
+   pinMode(relayInput[5],OUTPUT);
+   digitalWrite(relayInput[0], LOW);
+   digitalWrite(relayInput[1], LOW);
+   digitalWrite(relayInput[2], LOW);
+   digitalWrite(relayInput[3], LOW);
+   digitalWrite(relayInput[4], LOW);
+   digitalWrite(relayInput[5], LOW);
+   
+   lcd.begin();
+   lcd.backlight();
+   lcd.print("Starting");
+
+   WiFi.begin(ssid, password);
+   while (WiFi.status() != WL_CONNECTED) 
+   {
+      delay(1000);
+      lcd.print(".");
+   }
+   recheckWifi();
+   Blynk.begin(auth, ssid, password);
+}
+
+void loop() {
+  Blynk.run();
+  delay(500);
 }
