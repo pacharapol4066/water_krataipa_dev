@@ -14,9 +14,7 @@ int pumpFlage3 = 0;
 int pumpFlage4 = 0;
 int pumpFlage5 = 0;
 
-int relaySolinoidState[5];
-int relayPumpState = 0;
-
+int relaySolinoidState[6] = {0,0,0,0,0,0};
 const int relayInput[6] = {0,2,14,12,13,15};
 
 BlynkTimer timer;
@@ -29,79 +27,69 @@ BLYNK_CONNECTED() {
 BLYNK_WRITE(V1) //Relay 1
 {
   int pinData = param.asInt(); 
-  relayControl(pinData,relayInput[0],0);
+  relayControl(pinData,relayInput[0],1);
 }
 
 BLYNK_WRITE(V2) //Relay 2
 {
   int pinData = param.asInt(); 
-  relayControl(pinData,relayInput[1],1);
+  relayControl(pinData,relayInput[1],2);
 }
 
 BLYNK_WRITE(V3) //Relay 3
 {
   int pinData = param.asInt(); 
-  relayControl(pinData,relayInput[2],2);
+  relayControl(pinData,relayInput[2],3);
 }
 
 BLYNK_WRITE(V4) //Relay 4
 {
   int pinData = param.asInt(); 
-  relayControl(pinData,relayInput[3],3);
+  relayControl(pinData,relayInput[3],4);
 }
 
 BLYNK_WRITE(V5) //Relay 5
 {
   int pinData = param.asInt(); 
-  relayControl(pinData,relayInput[4],4);
+  relayControl(pinData,relayInput[4],5);
 }
 
 BLYNK_WRITE(V6) //Relay 6
 {
   int pinData = param.asInt(); 
-  relayControl(pinData,relayInput[5],5);
+  relayControl(pinData,relayInput[5],6);
 }
 
 
 void relayControl(int onoff,int relayNo,int statusFlage)
 {
-    int relayStatus = 0;
     if(onoff == 1) // Virtual button set to on
     {
-        /* If Relay Pump btn hit */
-        if(statusFlage == 5)
+        if(statusFlage == 6)
         { 
-            /* Recheck all solinoid was opened */
             if(relaySolinoidState[0] == 1 || relaySolinoidState[1] == 1 || relaySolinoidState[2] == 1 || relaySolinoidState[3] == 1 || relaySolinoidState[4] == 1)
             {
                 digitalWrite(relayInput[5], HIGH);
-                relaySolinoidState[statusFlage] = 1;
             }
         }
         else
         {
             digitalWrite(relayNo, HIGH);
-            relaySolinoidState[statusFlage] = 1;
         }
+        relaySolinoidState[statusFlage-1] = 1;
     }
     else if(onoff == 0)
     {
-        relaySolinoidState[statusFlage] = 0;
-        
-        /* If user close all solinoid valve */
+        relaySolinoidState[statusFlage-1] = 0;
         if(relaySolinoidState[0] == 0 && relaySolinoidState[1] == 0 && relaySolinoidState[2] == 0 && relaySolinoidState[3] == 0 && relaySolinoidState[4] == 0)
         {
             digitalWrite(relayInput[5], LOW);     //Cut off pump immediately
         }
-        else
-        {
-            digitalWrite(relayNo, LOW);
-        }
+        digitalWrite(relayNo, LOW);
     }
 }
 
 void recheckWifi(){
-  
   if(WiFi.status() == WL_CONNECTED)
    {
        lcd.setCursor(0, 0);
@@ -145,10 +133,11 @@ void setup() {
       lcd.print(".");
    }
    recheckWifi();
-   Blynk.begin(auth, ssid, password);
+   Blynk.config(auth,"blynk-cloud.com", 8080);
+   Blynk.connect();
 }
 
 void loop() {
   Blynk.run();
-  delay(500);
+  //delay(500);
 }
